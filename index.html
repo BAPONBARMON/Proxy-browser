@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Proxy Browser</title>
+
+  <style>
+    :root{
+      --bg:#07110a;
+      --neon:#39ff14;
+      --muted:#7fb28f;
+      --glass: rgba(255,255,255,0.03);
+      --radius:12px;
+      font-family: "Source Code Pro", monospace;
+    }
+    html,body{
+      height:100%;margin:0;
+      background:linear-gradient(180deg,var(--bg),#03120a);
+      color:var(--neon);
+    }
+    .app{
+      max-width:1100px;margin:18px auto;padding:18px;
+      background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);
+      border-radius:var(--radius);
+      box-shadow:0 6px 30px rgba(0,0,0,0.6);
+    }
+    header h1{margin:0;font-size:20px;letter-spacing:1px;}
+    header p{margin:0;color:var(--muted);font-size:13px;}
+
+    .controls{
+      display:flex;gap:8px;align-items:center;margin-top:14px;
+    }
+    input, select{
+      flex:1;
+      background:var(--glass);
+      border:1px solid rgba(57,255,20,0.12);
+      padding:10px 12px;border-radius:8px;
+      color:var(--neon);
+    }
+    ::placeholder{color:rgba(57,255,20,0.3);}
+    button{
+      padding:10px 16px;border-radius:8px;
+      background:linear-gradient(90deg,rgba(57,255,20,0.08),rgba(57,255,20,0.03));
+      border:1px solid rgba(57,255,20,0.12);
+      color:var(--neon);cursor:pointer;
+    }
+
+    iframe{
+      width:100%;height:72vh;margin-top:14px;
+      border-radius:10px;
+      border:1px solid rgba(57,255,20,0.10);
+      background:#021006;
+    }
+
+    footer{
+      margin-top:10px;color:var(--muted);
+      display:flex;justify-content:space-between;
+      font-size:12px;
+    }
+
+    @media(max-width:700px){
+      .controls{flex-direction:column;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header>
+      <h1>Hacking Green Proxy Browser</h1>
+      <p>No-backend • Public CORS-proxy mode</p>
+    </header>
+
+    <div class="controls">
+      <select id="proxySelect">
+        <option value="https://api.allorigins.win/raw?url=">AllOrigins (raw)</option>
+        <option value="https://api.allorigins.win/get?url=">AllOrigins (json)</option>
+        <option value="https://thingproxy.freeboard.io/fetch/">ThingProxy</option>
+        <option value="https://cors.bridged.cc/">bridged.cc</option>
+      </select>
+
+      <input id="url" type="text" placeholder="https://example.com" />
+      <button id="go">GO</button>
+    </div>
+
+    <p style="color:var(--muted);font-size:12px;">
+
+    </p>
+
+    <iframe id="frame" sandbox="allow-scripts allow-forms allow-same-origin"></iframe>
+
+    <footer>
+      <span></span>
+      <span id="status">Ready</span>
+    </footer>
+  </div>
+
+<script>
+const proxySelect = document.getElementById('proxySelect');
+const urlInput = document.getElementById('url');
+const goBtn = document.getElementById('go');
+const frame = document.getElementById('frame');
+const status = document.getElementById('status');
+
+function setStatus(t){ status.textContent = t }
+
+function buildFetchUrl(proxyBase, target){
+  if(proxyBase.includes('allorigins.win')){
+    return proxyBase + encodeURIComponent(target);
+  }
+  if(proxyBase.endsWith('/')) return proxyBase + target;
+  return proxyBase + "/" + target;
+}
+
+async function loadViaProxy(proxyBase, target){
+  setStatus("Fetching...");
+  try{
+    const fetchUrl = buildFetchUrl(proxyBase, target);
+    const res = await fetch(fetchUrl);
+    if(!res.ok) throw new Error("Proxy Error "+res.status);
+
+    const ct = res.headers.get("Content-Type") || "";
+    let text;
+
+    if(ct.includes("application/json")){
+      const j = await res.json();
+      text = j.contents || j.data || JSON.stringify(j);
+    } else {
+      text = await res.text();
+    }
+
+    frame.srcdoc = text;
+    setStatus("Loaded");
+  }catch(err){
+    setStatus("Failed, trying direct...");
+    frame.src = buildFetchUrl(proxyBase, target);
+  }
+}
+
+goBtn.onclick = ()=>{
+  const target = urlInput.value.trim();
+  if(!target) return alert("URL daalo!");
+
+  loadViaProxy(proxySelect.value, target);
+};
+
+urlInput.addEventListener("keydown",e=>{
+  if(e.key==="Enter") goBtn.click();
+});
+</script>
+
+</body>
+</html>
